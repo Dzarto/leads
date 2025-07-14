@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase-Claude Interface</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.0/umd/supabase.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .api-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .api-section h2 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .endpoint {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .endpoint-header {
+            background: #e9ecef;
+            padding: 12px 15px;
+            font-weight: bold;
+            color: #495057;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .endpoint-body {
+            padding: 15px;
+            display: none;
+        }
+        
+        .endpoint-body.active {
+            display: block;
+        }
+        
+        .method-badge {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+        
+        .method-badge.get { background: #28a745; }
+        .method-badge.post { background: #007bff; }
+        .method-badge.put { background: #ffc107; color: #000; }
+        .method-badge.delete { background: #dc3545; }
+        
+        textarea, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 10px;
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .response {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .tables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .table-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table-card h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        
+        .column {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .column:last-child {
+            border-bottom: none;
+        }
+        
+        .webhook-url {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .webhook-url code {
+            background: #fff;
+            padding: 10px 15px;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 10px 0;
+            word-break: break-all;
+            font-size: 0.9em;
+        }
+        
+        .copy-btn {
+            background: #2196f3;
+            font-size: 0.9em;
+            padding: 8px 15px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Supabase-Claude Interface</h1>
+            <p>Direct connection between Claude AI and your Supabase database</p>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            🔴 Not Connected - Click "Initialize Connection" below
+        </div>
+        
+        <div class="webhook-url">
+            <h3>📡 Your API Endpoint for Claude</h3>
+            <p>Share this URL with Claude to enable database access:</p>
+            <code id="webhook-url">https://your-domain.com/path-to-this-file</code>
+            <button class="copy-btn" onclick="copyWebhookUrl()">📋 Copy URL</button>
+            <p><small>Save this HTML file to a web server and share the URL with Claude</small></p>
+        </div>
+        
+        <div class="api-section">
+            <h2>🔧 Database Connection</h2>
+            <button onclick="initializeConnection()" style="width: 100%; margin-bottom: 15px;">
+                🚀 Initialize Connection
+            </button>
+            <div id="connection-response" class="response" style="display: none;"></div>
+        </div>
+        
+        <div class="api-section">
+            <h2>📊 Available Endpoints</h2>
+            
+            <div class="endpoint">
+                <div class="endpoint-header" onclick="toggleEndpoint('schema')">
+                    <span><span class="method-badge get">GET</span> Get Database Schema</span>
+                    <span>▼</span>
+                </div>
+                <div class="endpoint-body" id="schema-body">
+                    <p>Retrieve all tables and columns structure</p>
+                    <button onclick="getSchema()">🔍 Get Schema</button>
+                    <div id="schema-response" class="response" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-header" onclick="toggleEndpoint('select')">
+                    <span><span class="method-badge get">GET</span> Select Data</span>
+                    <span>▼</span>
+                </div>
+                <div class="endpoint-body" id="select-body">
+                    <input type="text" id="select-table" placeholder="Table name (e.g., leads)" />
+                    <input type="number" id="select-limit" placeholder="Limit (optional)" />
+                    <button onclick="selectData()">📊 Select Data</button>
+                    <div id="select-response" class="response" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-header" onclick="toggleEndpoint('insert')">
+                    <span><span class="method-badge post">POST</span> Insert Data</span>
+                    <span>▼</span>
+                </div>
+                <div class="endpoint-body" id="insert-body">
+                    <input type="text" id="insert-table" placeholder="Table name" />
+                    <textarea id="insert-data" placeholder='[{"column1": "value1", "column2": "value2"}]'></textarea>
+                    <button onclick="insertData()">➕ Insert Data</button>
+                    <div id="insert-response" class="response" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-header" onclick="toggleEndpoint('update')">
+                    <span><span class="method-badge put">PUT</span> Update Data</span>
+                    <span>▼</span>
+                </div>
+                <div class="endpoint-body" id="update-body">
+                    <input type="text" id="update-table" placeholder="Table name" />
+                    <input type="text" id="update-column" placeholder="Filter column (e.g., id)" />
+                    <input type="text" id="update-value" placeholder="Filter value" />
+                    <textarea id="update-data" placeholder='{"column1": "new_value"}'></textarea>
+                    <button onclick="updateData()">✏️ Update Data</button>
+                    <div id="update-response" class="response" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-header" onclick="toggleEndpoint('delete')">
+                    <span><span class="method-badge delete">DELETE</span> Delete Data</span>
+                    <span>▼</span>
+                </div>
+                <div class="endpoint-body" id="delete-body">
+                    <input type="text" id="delete-table" placeholder="Table name" />
+                    <input type="text" id="delete-column" placeholder="Filter column (e.g., id)" />
+                    <input type="text" id="delete-value" placeholder="Filter value" />
+                    <button onclick="deleteData()">🗑️ Delete Data</button>
+                    <div id="delete-response" class="response" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="endpoint">
+                <div class="endpoint-header" onclick="toggleEndpoint('custom')">
+                    <span><span class="method-badge post">POST</span> Custom Query</span>
+                    <span>▼</span>
+                </div>
+                <div class="endpoint-body" id="custom-body">
+                    <textarea id="custom-query" placeholder="SELECT * FROM your_table WHERE condition"></textarea>
+                    <button onclick="customQuery()">🔍 Execute Query</button>
+                    <div id="custom-response" class="response" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tables-section" class="api-section" style="display: none;">
+            <h2>📋 Database Tables</h2>
+            <div id="tables-grid" class="tables-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const SUPABASE_URL = 'https://qowfdbbracsmcphfbnrs.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvd2ZkYmJyYWNzbWNwaGZibnJzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTg1NjU3MCwiZXhwIjoyMDY1NDMyNTcwfQ.U7VqS8Ny8ajIIW-cEEBQuLrCNRhe9Q-DKBsEkMtfCqs';
+        
+        let supabase;
+        
+        // Initialize Supabase connection
+        async function initializeConnection() {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                
+                // Test connection
+                const { data, error } = await supabase.from('leads').select('*').limit(1);
+                
+                if (error && !error.message.includes('relation') && !error.message.includes('does not exist')) {
+                    throw error;
+                }
+                
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').innerHTML = '🟢 Connected to Supabase Database';
+                
+                document.getElementById('connection-response').style.display = 'block';
+                document.getElementById('connection-response').textContent = 'Successfully connected to Supabase!\nReady to receive Claude requests.';
+                
+                // Auto-load schema
+                getSchema();
+                
+            } catch (error) {
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').innerHTML = '🔴 Connection Failed';
+                
+                document.getElementById('connection-response').style.display = 'block';
+                document.getElementById('connection-response').textContent = `Connection Error: ${error.message}`;
+            }
+        }
+        
+        // Handle API requests (for Claude to call)
+        function handleApiRequest(operation, params) {
+            switch(operation) {
+                case 'schema':
+                    return getSchema();
+                case 'select':
+                    return selectData(params.table, params.limit);
+                case 'insert':
+                    return insertData(params.table, params.data);
+                case 'update':
+                    return updateData(params.table, params.column, params.value, params.data);
+                case 'delete':
+                    return deleteData(params.table, params.column, params.value);
+                case 'custom':
+                    return customQuery(params.query);
+                default:
+                    return { error: 'Unknown operation' };
+            }
+        }
+        
+        // API Functions
+        async function getSchema() {
+            try {
+                const { data, error } = await supabase.rpc('get_schema_info');
+                
+                if (error) {
+                    // Fallback: get table info from information_schema
+                    const { data: tables, error: tablesError } = await supabase
+                        .from('information_schema.tables')
+                        .select('table_name')
+                        .eq('table_schema', 'public');
+                    
+                    if (tablesError) {
+                        throw new Error('Could not retrieve schema information');
+                    }
+                    
+                    const response = { tables: tables.map(t => t.table_name) };
+                    document.getElementById('schema-response').style.display = 'block';
+                    document.getElementById('schema-response').textContent = JSON.stringify(response, null, 2);
+                    return response;
+                }
+                
+                document.getElementById('schema-response').style.display = 'block';
+                document.getElementById('schema-response').textContent = JSON.stringify(data, null, 2);
+                
+                displayTables(data);
+                return data;
+                
+            } catch (error) {
+                const errorResponse = { error: error.message };
+                document.getElementById('schema-response').style.display = 'block';
+                document.getElementById('schema-response').textContent = JSON.stringify(errorResponse, null, 2);
+                return errorResponse;
+            }
+        }
+        
+        async function selectData(tableName = null, limit = null) {
+            try {
+                const table = tableName || document.getElementById('select-table').value;
+                const limitValue = limit || document.getElementById('select-limit').value || 10;
+                
+                if (!table) {
+                    throw new Error('Table name is required');
+                }
+                
+                let query = supabase.from(table).select('*');
+                if (limitValue) {
+                    query = query.limit(parseInt(limitValue));
+                }
+                
+                const { data, error } = await query;
+                
+                if (error) throw error;
+                
+                const response = { 
+                    success: true, 
+                    operation: 'select',
+                    table: table,
+                    count: data.length,
+                    data: data 
+                };
+                
+                document.getElementById('select-response').style.display = 'block';
+                document.getElementById('select-response').textContent = JSON.stringify(response, null, 2);
+                return response;
+                
+            } catch (error) {
+                const errorResponse = { 
+                    success: false, 
+                    operation: 'select',
+                    error: error.message 
+                };
+                document.getElementById('select-response').style.display = 'block';
+                document.getElementById('select-response').textContent = JSON.stringify(errorResponse, null, 2);
+                return errorResponse;
+            }
+        }
+        
+        async function insertData(tableName = null, insertData = null) {
+            try {
+                const table = tableName || document.getElementById('insert-table').value;
+                const dataToInsert = insertData || JSON.parse(document.getElementById('insert-data').value);
+                
+                if (!table || !dataToInsert) {
+                    throw new Error('Table name and data are required');
+                }
+                
+                const { data, error } = await supabase
+                    .from(table)
+                    .insert(dataToInsert)
+                    .select();
+                
+                if (error) throw error;
+                
+                const response = { 
+                    success: true, 
+                    operation: 'insert',
+                    table: table,
+                    inserted_count: data.length,
+                    data: data 
+                };
+                
+                document.getElementById('insert-response').style.display = 'block';
+                document.getElementById('insert-response').textContent = JSON.stringify(response, null, 2);
+                return response;
+                
+            } catch (error) {
+                const errorResponse = { 
+                    success: false, 
+                    operation: 'insert',
+                    error: error.message 
+                };
+                document.getElementById('insert-response').style.display = 'block';
+                document.getElementById('insert-response').textContent = JSON.stringify(errorResponse, null, 2);
+                return errorResponse;
+            }
+        }
+        
+        async function updateData(tableName = null, column = null, value = null, updateData = null) {
+            try {
+                const table = tableName || document.getElementById('update-table').value;
+                const filterColumn = column || document.getElementById('update-column').value;
+                const filterValue = value || document.getElementById('update-value').value;
+                const dataToUpdate = updateData || JSON.parse(document.getElementById('update-data').value);
+                
+                if (!table || !filterColumn || !filterValue || !dataToUpdate) {
+                    throw new Error('All fields are required');
+                }
+                
+                const { data, error } = await supabase
+                    .from(table)
+                    .update(dataToUpdate)
+                    .eq(filterColumn, filterValue)
+                    .select();
+                
+                if (error) throw error;
+                
+                const response = { 
+                    success: true, 
+                    operation: 'update',
+                    table: table,
+                    updated_count: data.length,
+                    data: data 
+                };
+                
+                document.getElementById('update-response').style.display = 'block';
+                document.getElementById('update-response').textContent = JSON.stringify(response, null, 2);
+                return response;
+                
+            } catch (error) {
+                const errorResponse = { 
+                    success: false, 
+                    operation: 'update',
+                    error: error.message 
+                };
+                document.getElementById('update-response').style.display = 'block';
+                document.getElementById('update-response').textContent = JSON.stringify(errorResponse, null, 2);
+                return errorResponse;
+            }
+        }
+        
+        async function deleteData(tableName = null, column = null, value = null) {
+            try {
+                const table = tableName || document.getElementById('delete-table').value;
+                const filterColumn = column || document.getElementById('delete-column').value;
+                const filterValue = value || document.getElementById('delete-value').value;
+                
+                if (!table || !filterColumn || !filterValue) {
+                    throw new Error('Table name, filter column, and filter value are required');
+                }
+                
+                const { data, error } = await supabase
+                    .from(table)
+                    .delete()
+                    .eq(filterColumn, filterValue)
+                    .select();
+                
+                if (error) throw error;
+                
+                const response = { 
+                    success: true, 
+                    operation: 'delete',
+                    table: table,
+                    deleted_count: data.length,
+                    data: data 
+                };
+                
+                document.getElementById('delete-response').style.display = 'block';
+                document.getElementById('delete-response').textContent = JSON.stringify(response, null, 2);
+                return response;
+                
+            } catch (error) {
+                const errorResponse = { 
+                    success: false, 
+                    operation: 'delete',
+                    error: error.message 
+                };
+                document.getElementById('delete-response').style.display = 'block';
+                document.getElementById('delete-response').textContent = JSON.stringify(errorResponse, null, 2);
+                return errorResponse;
+            }
+        }
+        
+        async function customQuery(queryText = null) {
+            try {
+                const query = queryText || document.getElementById('custom-query').value;
+                
+                if (!query) {
+                    throw new Error('Query is required');
+                }
+                
+                // Note: Custom queries might need to be implemented differently
+                // depending on your Supabase setup and RLS policies
+                const response = { 
+                    success: false, 
+                    operation: 'custom_query',
+                    error: 'Custom queries require additional setup in Supabase' 
+                };
+                
+                document.getElementById('custom-response').style.display = 'block';
+                document.getElementById('custom-response').textContent = JSON.stringify(response, null, 2);
+                return response;
+                
+            } catch (error) {
+                const errorResponse = { 
+                    success: false, 
+                    operation: 'custom_query',
+                    error: error.message 
+                };
+                document.getElementById('custom-response').style.display = 'block';
+                document.getElementById('custom-response').textContent = JSON.stringify(errorResponse, null, 2);
+                return errorResponse;
+            }
+        }
+        
+        // UI Functions
+        function toggleEndpoint(endpointId) {
+            const body = document.getElementById(endpointId + '-body');
+            const header = body.previousElementSibling.querySelector('span:last-child');
+            
+            if (body.classList.contains('active')) {
+                body.classList.remove('active');
+                header.textContent = '▼';
+            } else {
+                body.classList.add('active');
+                header.textContent = '▲';
+            }
+        }
+        
+        function displayTables(schemaData) {
+            const tablesSection = document.getElementById('tables-section');
+            const tablesGrid = document.getElementById('tables-grid');
+            
+            if (!schemaData || !Array.isArray(schemaData)) return;
+            
+            tablesGrid.innerHTML = '';
+            
+            schemaData.forEach(table => {
+                const tableCard = document.createElement('div');
+                tableCard.className = 'table-card';
+                
+                tableCard.innerHTML = `
+                    <h3>${table.table_name}</h3>
+                    ${table.columns.map(col => `
+                        <div class="column">
+                            <span><strong>${col.column_name}</strong></span>
+                            <span><em>${col.data_type}</em></span>
+                        </div>
+                    `).join('')}
+                `;
+                
+                tablesGrid.appendChild(tableCard);
+            });
+            
+            tablesSection.style.display = 'block';
+        }
+        
+        function copyWebhookUrl() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard!');
+            });
+        }
+        
+        // Set webhook URL on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('webhook-url').textContent = window.location.href;
+        });
+        
+        // API endpoint for Claude to call
+        window.claudeApi = {
+            handleRequest: async function(operation, params = {}) {
+                if (!supabase) {
+                    await initializeConnection();
+                }
+                
+                try {
+                    switch(operation) {
+                        case 'schema':
+                            return await getSchemaForApi();
+                        case 'select':
+                            return await selectDataForApi(params.table, params.limit, params.columns);
+                        case 'insert':
+                            return await insertDataForApi(params.table, params.data);
+                        case 'update':
+                            return await updateDataForApi(params.table, params.filter, params.data);
+                        case 'delete':
+                            return await deleteDataForApi(params.table, params.filter);
+                        case 'count':
+                            return await countDataForApi(params.table, params.filter);
+                        case 'custom':
+                            return await customQueryForApi(params.query);
+                        default:
+                            return { success: false, error: 'Unknown operation: ' + operation };
+                    }
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            }
+        };
+
+        // API-specific functions that return clean data
+        async function getSchemaForApi() {
+            try {
+                // Get all tables in public schema
+                const { data: tables, error } = await supabase
+                    .rpc('exec', { 
+                        sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'` 
+                    })
+                    .single();
+                
+                if (error) {
+                    // Fallback: try to get tables by attempting to query known ones
+                    const knownTables = ['leads', 'enrichment_cache'];
+                    const availableTables = [];
+                    
+                    for (const table of knownTables) {
+                        try {
+                            await supabase.from(table).select('*').limit(1);
+                            availableTables.push({ table_name: table });
+                        } catch (e) {
+                            // Table doesn't exist or no access
+                        }
+                    }
+                    
+                    return {
+                        success: true,
+                        operation: 'schema',
+                        tables: availableTables,
+                        message: 'Schema retrieved (limited)'
+                    };
+                }
+                
+                return {
+                    success: true,
+                    operation: 'schema',
+                    tables: tables,
+                    message: 'Schema retrieved successfully'
+                };
+            } catch (error) {
+                return { success: false, operation: 'schema', error: error.message };
+            }
+        }
+
+        async function selectDataForApi(table, limit = 10, columns = '*') {
+            try {
+                let query = supabase.from(table).select(columns);
+                if (limit) query = query.limit(parseInt(limit));
+                
+                const { data, error } = await query;
+                if (error) throw error;
+                
+                return {
+                    success: true,
+                    operation: 'select',
+                    table: table,
+                    count: data.length,
+                    data: data,
+                    message: `Retrieved ${data.length} records from ${table}`
+                };
+            } catch (error) {
+                return { success: false, operation: 'select', error: error.message };
+            }
+        }
+
+        async function insertDataForApi(table, records) {
+            try {
+                const { data, error } = await supabase
+                    .from(table)
+                    .insert(records)
+                    .select();
+                
+                if (error) throw error;
+                
+                return {
+                    success: true,
+                    operation: 'insert',
+                    table: table,
+                    inserted_count: data.length,
+                    data: data,
+                    message: `Inserted ${data.length} records into ${table}`
+                };
+            } catch (error) {
+                return { success: false, operation: 'insert', error: error.message };
+            }
+        }
+
+        async function updateDataForApi(table, filter, updateData) {
+            try {
+                let query = supabase.from(table).update(updateData);
+                
+                // Apply filters
+                for (const [column, value] of Object.entries(filter)) {
+                    query = query.eq(column, value);
+                }
+                
+                const { data, error } = await query.select();
+                if (error) throw error;
+                
+                return {
+                    success: true,
+                    operation: 'update',
+                    table: table,
+                    updated_count: data.length,
+                    data: data,
+                    message: `Updated ${data.length} records in ${table}`
+                };
+            } catch (error) {
+                return { success: false, operation: 'update', error: error.message };
+            }
+        }
+
+        async function deleteDataForApi(table, filter) {
+            try {
+                let query = supabase.from(table).delete();
+                
+                // Apply filters
+                for (const [column, value] of Object.entries(filter)) {
+                    query = query.eq(column, value);
+                }
+                
+                const { data, error } = await query.select();
+                if (error) throw error;
+                
+                return {
+                    success: true,
+                    operation: 'delete',
+                    table: table,
+                    deleted_count: data.length,
+                    data: data,
+                    message: `Deleted ${data.length} records from ${table}`
+                };
+            } catch (error) {
+                return { success: false, operation: 'delete', error: error.message };
+            }
+        }
+
+        async function countDataForApi(table, filter = {}) {
+            try {
+                let query = supabase.from(table).select('*', { count: 'exact', head: true });
+                
+                // Apply filters if provided
+                for (const [column, value] of Object.entries(filter)) {
+                    query = query.eq(column, value);
+                }
+                
+                const { count, error } = await query;
+                if (error) throw error;
+                
+                return {
+                    success: true,
+                    operation: 'count',
+                    table: table,
+                    count: count,
+                    message: `Found ${count} records in ${table}`
+                };
+            } catch (error) {
+                return { success: false, operation: 'count', error: error.message };
+            }
+        }
+
+        async function customQueryForApi(sqlQuery) {
+            try {
+                const { data, error } = await supabase.rpc('exec', { sql: sqlQuery });
+                if (error) throw error;
+                
+                return {
+                    success: true,
+                    operation: 'custom_query',
+                    data: data,
+                    message: 'Custom query executed successfully'
+                };
+            } catch (error) {
+                return { success: false, operation: 'custom_query', error: error.message };
+            }
+        }
+    </script>
+</body>
+</html>
